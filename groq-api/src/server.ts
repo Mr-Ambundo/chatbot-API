@@ -10,6 +10,57 @@ app.use(cors());
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"; // ✅ Correct URL
 
+app.post("/", async (req, res) => {
+    let userInput = req.body;
+    console.log(userInput);
+    try {
+        const response = await fetch(GROQ_API_URL, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: "llama-3.1-8b-instant",
+                messages: [
+                    {
+                        role: "system",
+                        content: `
+                    Your goal is to guide them step-by-step toward clarity about their career goals.
+                    - Start with **broad** open-ended questions.
+                    - Based on their response, gradually **narrow the focus**.
+                    - Keep track of what they mention and **refer back to previous answers**.
+                    - Ensure the conversation feels natural, like a real human dialogue.
+                    - Ask one question at a time, leading them toward defining their career path.
+
+                    **Examples of conversation flow:**
+                    - AI: "What excites you about the future?"
+                    - User: "I enjoy technology."
+                    - AI: "Interesting! Are you
+                        `
+                    },
+                    {
+                        role: "user",
+                        content: JSON.stringify(userInput)
+                    }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            res.json({ prompt: data.choices[0].message.content });
+        } else {
+            console.error("Error response from Groq API:", data);
+            res.status(500).json({ error: data.error || "Unknown error from Groq API." });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error generating aspiration prompt." });
+    }
+});
 // ✅ Generate a Quiz Based on User Aspiration
 app.post("/generate_quiz", async (req, res) => {
     try {
@@ -121,7 +172,8 @@ app.post("/generate_milestones", async (req, res) => {
         const data = await response.json();
 
         if (response.ok) {
-            res.json({ milestones: JSON.parse(data.choices[0].message.content) });
+            let milestones = JSON.parse(data.choices[0].message.content)
+            res.json({ prompt: milestones });
         } else {
             console.error("Error response from Groq API:", data);
             res.status(500).json({ error: data.error || "Unknown error from Groq API." });
